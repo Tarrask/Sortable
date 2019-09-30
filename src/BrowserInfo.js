@@ -1,5 +1,5 @@
 function userAgent(pattern) {
-	return !!/*@__PURE__*/navigator.userAgent.match(pattern);
+	return !!/*@__PURE__*/global.navigator && global.navigator.userAgent.match(pattern);
 }
 
 export const IE11OrLess = userAgent(/(?:Trident.*rv[ :]?11\.|msie|iemobile|Windows Phone)/i);

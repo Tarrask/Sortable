@@ -5,8 +5,6 @@
  * @license MIT
  */
 
-import './windowCheck.js'; // Always import first
-
 import { version } from '../package.json';
 
 import { IE11OrLess, Edge, FireFox, Safari, IOS, ChromeForAndroid } from './BrowserInfo.js';
@@ -144,10 +142,7 @@ let dragEl,
 
 	CSSFloatProperty = Edge || IE11OrLess ? 'cssFloat' : 'float',
 
-	// This will not pass for IE9, because IE9 DnD only works on anchors
-	supportDraggable = !ChromeForAndroid && !IOS && ('draggable' in document.createElement('div')),
-
-	supportCssPointerEvents = (function() {
+	supportCssPointerEvents = function() {
 		// false when <= IE11
 		if (IE11OrLess) {
 			return false;
@@ -155,7 +150,7 @@ let dragEl,
 		let el = document.createElement('x');
 		el.style.cssText = 'pointer-events:auto';
 		return el.style.pointerEvents === 'auto';
-	})(),
+	},
 
 	_detectDirection = function(el, options) {
 		let elCSS = css(el),
@@ -284,28 +279,16 @@ let dragEl,
 	},
 
 	_hideGhostForTarget = function() {
-		if (!supportCssPointerEvents && ghostEl) {
+		if (!supportCssPointerEvents() && ghostEl) {
 			css(ghostEl, 'display', 'none');
 		}
 	},
 
 	_unhideGhostForTarget = function() {
-		if (!supportCssPointerEvents && ghostEl) {
+		if (!supportCssPointerEvents() && ghostEl) {
 			css(ghostEl, 'display', '');
 		}
 	};
-
-
-// #1184 fix - Prevent click event on fallback if dragged but item not changed position
-document.addEventListener('click', function(evt) {
-	if (ignoreNextClick) {
-		evt.preventDefault();
-		evt.stopPropagation && evt.stopPropagation();
-		evt.stopImmediatePropagation && evt.stopImmediatePropagation();
-		ignoreNextClick = false;
-		return false;
-	}
-}, true);
 
 let nearestEmptyInsertDetectEvent = function(evt) {
 	if (dragEl) {
@@ -345,6 +328,28 @@ function Sortable(el, options) {
 	if (!(el && el.nodeType && el.nodeType === 1)) {
 		throw `Sortable: \`el\` must be an HTMLElement, not ${ {}.toString.call(el) }`;
 	}
+
+  if (typeof window === "undefined" || !window.document) {
+  	throw new Error("Sortable.js requires a window with a document");
+  }
+
+  // #1184 fix - Prevent click event on fallback if dragged but item not changed position
+  document.addEventListener('click', function(evt) {
+  	if (ignoreNextClick) {
+  		evt.preventDefault();
+  		evt.stopPropagation && evt.stopPropagation();
+  		evt.stopImmediatePropagation && evt.stopImmediatePropagation();
+  		ignoreNextClick = false;
+  		return false;
+  	}
+  }, true);
+
+  // Fixed #973:
+  on(document, 'touchmove', function(evt) {
+  	if ((Sortable.active || awaitingDragStarted) && evt.cancelable) {
+  		evt.preventDefault();
+  	}
+  });
 
 	this.el = el; // root element
 	this.options = options = Object.assign({}, options);
@@ -408,6 +413,9 @@ function Sortable(el, options) {
 			this[fn] = this[fn].bind(this);
 		}
 	}
+
+	// This will not pass for IE9, because IE9 DnD only works on anchors
+	supportDraggable = !ChromeForAndroid && !IOS && ('draggable' in document.createElement('div')),
 
 	// Setup drag mode
 	this.nativeDraggable = options.forceFallback ? false : supportDraggable;
@@ -1882,13 +1890,6 @@ function _nextTick(fn) {
 function _cancelNextTick(id) {
 	return clearTimeout(id);
 }
-
-// Fixed #973:
-on(document, 'touchmove', function(evt) {
-	if ((Sortable.active || awaitingDragStarted) && evt.cancelable) {
-		evt.preventDefault();
-	}
-});
 
 
 // Export utils
